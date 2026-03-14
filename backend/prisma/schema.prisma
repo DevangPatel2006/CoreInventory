@@ -13,6 +13,8 @@ model User {
   email         String      @unique
   password_hash String
   role          String      // "manager" or "staff"
+  reset_otp     String?
+  otp_expiry    DateTime?
   operations    Operation[]
 }
 
@@ -56,15 +58,16 @@ model StockLocation {
 }
 
 model Operation {
-  id         String      @id @default(uuid())
-  type       String      // "receipt", "delivery", "transfer", "adjust"
-  status     String      @default("draft") // draft, waiting, ready, done
-  ref_number String
-  created_by String
-  created_at DateTime    @default(now())
+  id           String      @id @default(uuid())
+  type         String      // "receipt", "delivery", "transfer", "adjust"
+  status       String      @default("draft") // draft, waiting, ready, done
+  ref_number   String
+  contact_name String?
+  created_by   String
+  created_at   DateTime    @default(now())
 
-  user       User        @relation(fields: [created_by], references: [id])
-  moves      StockMove[]
+  user         User        @relation(fields: [created_by], references: [id])
+  moves        StockMove[]
 }
 
 model StockMove {

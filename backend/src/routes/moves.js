@@ -10,6 +10,11 @@ const prisma = new PrismaClient();
 router.get('/', authMid, async (req, res) => {
   try {
     const moves = await prisma.stockMove.findMany({
+      where: {
+        operation: {
+          status: 'done'
+        }
+      },
       include: {
         product: true,
         operation: {

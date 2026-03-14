@@ -62,4 +62,23 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
+  const updated = await prisma.user.updateMany({
+    where: { email },
+    data: { reset_otp: otp, otp_expiry: expiry }
+  });
+
+  if (updated.count === 0) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  res.json({ message: "OTP generated", otp }); 
+});
+
 module.exports = router;

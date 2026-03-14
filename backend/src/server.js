@@ -17,6 +17,7 @@ app.use('/products', require('./routes/products'));
 app.use('/receipts', require('./routes/receipts'));
 app.use('/deliveries', require('./routes/deliveries'));
 app.use('/transfers', require('./routes/transfers'));
+app.use('/adjustments', require('./routes/adjustments'));
 app.use('/moves', require('./routes/moves'));
 app.use('/dashboard', require('./routes/dashboard'));
 

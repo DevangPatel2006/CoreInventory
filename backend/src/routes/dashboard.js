@@ -30,11 +30,16 @@ router.get('/kpis', authMid, async (req, res) => {
         where: { type: 'delivery', status: { not: 'done' } }
     });
 
+    const scheduledTransfers = await prisma.operation.count({
+        where: { type: 'transfer', status: { not: 'done' } }
+    });
+
     res.json({
       totalProducts,
       lowStockCount,
       pendingReceipts,
-      pendingDeliveries
+      pendingDeliveries,
+      scheduledTransfers
     });
   } catch (err) {
     console.error(err);
