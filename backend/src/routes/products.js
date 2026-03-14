@@ -71,4 +71,28 @@ router.get('/:id/stock', authMid, async (req, res) => {
   }
 });
 
+// Edit a product
+router.put('/:id', authMid, async (req, res) => {
+  try {
+    const { name, category_id, unit_of_measure, min_stock_level } = req.body;
+    
+    const updatedProduct = await prisma.product.update({
+      where: { id: req.params.id },
+      data: {
+        name,
+        category_id,
+        unit_of_measure,
+        min_stock_level
+      }
+    });
+
+    res.json(updatedProduct);
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    res.status(400).json({ error: "Failed to update product" });
+  }
+});
+
 module.exports = router;
