@@ -24,11 +24,35 @@ router.get('/', authMid, async (req, res) => {
   }
 });
 
+router.get('/:id', authMid, async (req, res) => {
+  try {
+    const receipt = await prisma.operation.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: { select: { name: true } },
+        moves: {
+          include: { product: true }
+        }
+      }
+    });
+
+    if (!receipt || receipt.type !== 'receipt') {
+      return res.status(404).json({ error: "Receipt not found" });
+    }
+
+    res.json(receipt);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch receipt" });
+  }
+});
+
 // Create draft receipt
 router.post('/', authMid, async (req, res) => {
   try {
     const { ref_number, moves } = req.body;
-    // moves = [ { product_id, qty, to_location } ]
+    
+    if (!ref_number) return res.status(400).json({ error: "Reference number is required" });
+    if (!moves || !moves.length) return res.status(400).json({ error: "Moves are required" });
 
     const receipt = await prisma.operation.create({
       data: {

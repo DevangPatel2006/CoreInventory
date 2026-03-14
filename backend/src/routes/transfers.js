@@ -24,11 +24,35 @@ router.get('/', authMid, async (req, res) => {
   }
 });
 
+// Fetch single transfer
+router.get('/:id', authMid, async (req, res) => {
+  try {
+    const transfer = await prisma.operation.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: { select: { name: true } },
+        moves: {
+          include: { product: true }
+        }
+      }
+    });
+
+    if (!transfer || transfer.type !== 'transfer') {
+      return res.status(404).json({ error: "Transfer not found" });
+    }
+
+    res.json(transfer);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch transfer" });
+  }
+});
+
 // Create and automatically validate a transfer
-router.post('/validate', authMid, async (req, res) => {
+router.post('/', authMid, async (req, res) => {
   try {
     const { ref_number, moves } = req.body;
-    // moves = [ { product_id, qty, from_location, to_location } ]
+    
+    if (!moves || !moves.length) return res.status(400).json({ error: "Moves are required" });
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create the operation marked as done immediately

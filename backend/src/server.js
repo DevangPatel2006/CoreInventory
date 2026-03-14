@@ -14,6 +14,8 @@ app.get('/', (req, res) => {
 // Import routes (we will create these)
 app.use('/auth', require('./routes/auth'));
 app.use('/products', require('./routes/products'));
+app.use('/categories', require('./routes/categories'));
+app.use('/warehouses', require('./routes/warehouses'));
 app.use('/receipts', require('./routes/receipts'));
 app.use('/deliveries', require('./routes/deliveries'));
 app.use('/transfers', require('./routes/transfers'));

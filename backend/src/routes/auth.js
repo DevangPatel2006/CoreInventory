@@ -81,4 +81,33 @@ router.post('/forgot-password', async (req, res) => {
   res.json({ message: "OTP generated", otp }); 
 });
 
+router.post('/reset-password', async (req, res) => {
+  const { email, otp, new_password } = req.body;
+  if (!email || !otp || !new_password) return res.status(400).json({ error: "Email, OTP and new password are required" });
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    
+    if (!user || user.reset_otp !== otp || !user.otp_expiry || user.otp_expiry < new Date()) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(new_password, salt);
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        password_hash,
+        reset_otp: null,
+        otp_expiry: null
+      }
+    });
+
+    res.json({ message: "Password reset successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
 module.exports = router;

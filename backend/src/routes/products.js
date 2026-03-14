@@ -27,6 +27,8 @@ router.post('/', authMid, async (req, res) => {
   try {
     const { name, sku, category_id, unit_of_measure, min_stock_level } = req.body;
     
+    if (!name || !sku) return res.status(400).json({ error: "Name and SKU are required" });
+
     const newProduct = await prisma.product.create({
       data: {
         name,
@@ -37,24 +39,28 @@ router.post('/', authMid, async (req, res) => {
       }
     });
     
-    // When creating a product, we might want to initialize its stock to 0 in all active warehouses
     const warehouses = await prisma.warehouse.findMany({ where: { is_active: true } });
     
-    const stockPromises = warehouses.map(w => 
-      prisma.stockLocation.create({
-        data: {
-          warehouse_id: w.id,
-          product_id: newProduct.id,
-          quantity: 0
-        }
-      })
-    );
-    await Promise.all(stockPromises);
+    for (const w of warehouses) {
+      const existing = await prisma.stockLocation.findFirst({
+        where: { warehouse_id: w.id, product_id: newProduct.id }
+      });
+
+      if (!existing) {
+        await prisma.stockLocation.create({
+          data: {
+            warehouse_id: w.id,
+            product_id: newProduct.id,
+            quantity: 0
+          }
+        });
+      }
+    }
 
     res.json(newProduct);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create product. Check if SKU is unique." });
+    res.status(400).json({ error: "Failed to create product. Check if SKU is unique." });
   }
 });
 

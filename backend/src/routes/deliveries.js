@@ -23,10 +23,34 @@ router.get('/', authMid, async (req, res) => {
   }
 });
 
+router.get('/:id', authMid, async (req, res) => {
+  try {
+    const delivery = await prisma.operation.findUnique({
+      where: { id: req.params.id },
+      include: {
+        user: { select: { name: true } },
+        moves: {
+          include: { product: true }
+        }
+      }
+    });
+
+    if (!delivery || delivery.type !== 'delivery') {
+      return res.status(404).json({ error: "Delivery not found" });
+    }
+
+    res.json(delivery);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch delivery" });
+  }
+});
+
 router.post('/', authMid, async (req, res) => {
   try {
     const { ref_number, moves } = req.body;
-    // moves = [ { product_id, qty, from_location } ]
+    
+    if (!ref_number) return res.status(400).json({ error: "Reference number is required" });
+    if (!moves || !moves.length) return res.status(400).json({ error: "Moves are required" });
 
     const delivery = await prisma.operation.create({
       data: {
@@ -66,6 +90,8 @@ router.post('/:id/validate', authMid, async (req, res) => {
       if (op.status === 'done') throw new Error("Already validated");
 
       for (const move of op.moves) {
+        if (!move.from_location) throw new Error("Missing from_location");
+        
         const location = await tx.stockLocation.findFirst({
           where: { product_id: move.product_id, warehouse_id: move.from_location }
         });
