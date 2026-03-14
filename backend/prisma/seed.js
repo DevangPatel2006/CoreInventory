@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database...');
 
-  // 1. Create a dummy category
+  // 1. Create a dummy category used
   const cat = await prisma.category.create({
     data: { name: 'Raw Materials' }
   });
