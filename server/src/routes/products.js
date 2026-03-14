@@ -62,21 +62,14 @@ router.post('/', authMid, async (req, res) => {
     
     const warehouses = await prisma.warehouse.findMany({ where: { is_active: true } });
     
-    for (const w of warehouses) {
-      const existing = await prisma.stockLocation.findFirst({
-        where: { warehouse_id: w.id, product_id: newProduct.id }
-      });
-
-      if (!existing) {
-        await prisma.stockLocation.create({
-          data: {
-            warehouse_id: w.id,
-            product_id: newProduct.id,
-            quantity: 0
-          }
-        });
-      }
-    }
+    await prisma.stockLocation.createMany({
+      data: warehouses.map(w => ({
+        warehouse_id: w.id,
+        product_id: newProduct.id,
+        quantity: 0
+      })),
+      skipDuplicates: true,
+    });
 
     res.json(newProduct);
   } catch (err) {

@@ -3,6 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 const prisma = new PrismaClient();
 const SECRET = process.env.JWT_SECRET || 'supersecret';
@@ -98,7 +99,6 @@ router.post('/forgot-password', async (req, res) => {
   }
 
   if (process.env.EMAIL_USER) {
-    const nodemailer = require('nodemailer');
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: process.env.EMAIL_PORT,
