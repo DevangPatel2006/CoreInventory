@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import { 
   LayoutDashboard, 
   Package, 
@@ -11,9 +11,11 @@ import {
   Settings, 
   ChevronDown, 
   Warehouse,
-  ChevronRight
+  ChevronRight,
+  LogOut,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "../contexts/AuthContext"
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -35,6 +37,13 @@ const navItems = [
 export function Sidebar() {
   const [openSubmenu, setOpenSubmenu] = useState("Operations")
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    navigate("/login", { replace: true })
+  }
 
   return (
     <div className="flex h-screen w-72 flex-col glass border-r border-white/20 px-6 py-8 relative z-20">
@@ -120,16 +129,26 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto pt-6 border-t border-white/10">
+      <div className="mt-auto pt-6 border-t border-white/10 space-y-3">
         <div className="flex items-center space-x-3 px-2">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-primary to-blue-400" />
+          <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-white font-black text-sm">
+            {user?.name?.charAt(0)?.toUpperCase() || "?"}
+          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate text-foreground">Mitchell Admin</p>
-            <p className="text-xs text-muted-foreground truncate">Administrator</p>
+            <p className="text-sm font-semibold truncate text-foreground">{user?.name || "User"}</p>
+            <p className="text-xs text-muted-foreground capitalize truncate">{user?.role || "staff"}</p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Logout</span>
+        </button>
       </div>
     </div>
   )
 }
+
 
