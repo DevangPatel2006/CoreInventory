@@ -11,15 +11,13 @@ router.get('/', authMid, async (req, res) => {
       where: { type: 'delivery' },
       include: {
         user: { select: { name: true } },
-        moves: {
-          include: { product: true } // to display names
-        }
+        moves: { include: { product: true } },
       },
-      orderBy: { created_at: 'desc' }
+      orderBy: { created_at: 'desc' },
     });
     res.json(deliveries);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch deliveries" });
+    res.status(500).json({ error: 'Failed to fetch deliveries' });
   }
 });
 
@@ -29,92 +27,94 @@ router.get('/:id', authMid, async (req, res) => {
       where: { id: req.params.id },
       include: {
         user: { select: { name: true } },
-        moves: {
-          include: { product: true }
-        }
-      }
+        moves: { include: { product: true } },
+      },
     });
 
     if (!delivery || delivery.type !== 'delivery') {
-      return res.status(404).json({ error: "Delivery not found" });
+      return res.status(404).json({ error: 'Delivery not found' });
     }
 
     res.json(delivery);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch delivery" });
+    res.status(500).json({ error: 'Failed to fetch delivery' });
   }
 });
 
 router.post('/', authMid, async (req, res) => {
   try {
-    const { ref_number, moves } = req.body;
-    
-    if (!ref_number) return res.status(400).json({ error: "Reference number is required" });
-    if (!moves || !moves.length) return res.status(400).json({ error: "Moves are required" });
+    const { ref_number, contact_name, moves } = req.body;
+
+    if (!ref_number) return res.status(400).json({ error: 'Reference number is required' });
+    if (!moves || !moves.length) return res.status(400).json({ error: 'Moves are required' });
 
     const delivery = await prisma.operation.create({
       data: {
         type: 'delivery',
         ref_number,
+        contact_name: contact_name || null,
         created_by: req.user.id,
         moves: {
           create: moves.map(m => ({
             product_id: m.product_id,
             qty: m.qty,
-            from_location: m.from_location
-          }))
-        }
+            from_location: m.from_location,
+          })),
+        },
       },
-      include: { moves: true }
+      include: { moves: true },
     });
 
     res.json(delivery);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create delivery" });
+    res.status(500).json({ error: 'Failed to create delivery' });
   }
 });
 
+// Validate delivery → stock decreases
 router.post('/:id/validate', authMid, async (req, res) => {
   try {
-    const operation_id = req.params.id;
-
     const result = await prisma.$transaction(async (tx) => {
       const op = await tx.operation.findUnique({
-        where: { id: operation_id },
-        include: { moves: true }
+        where: { id: req.params.id },
+        include: { moves: true },
       });
 
-      if (!op) throw new Error("Operation not found");
-      if (op.type !== 'delivery') throw new Error("Not a delivery");
-      if (op.status === 'done') throw new Error("Already validated");
+      if (!op)                    throw new Error('Operation not found');
+      if (op.type !== 'delivery') throw new Error('Not a delivery');
+      if (op.status === 'done')   throw new Error('Already validated');
 
       for (const move of op.moves) {
-        if (!move.from_location) throw new Error("Missing from_location");
-        
+        if (!move.from_location) throw new Error('Missing from_location on move');
+
         const location = await tx.stockLocation.findFirst({
-          where: { product_id: move.product_id, warehouse_id: move.from_location }
+          where: { product_id: move.product_id, warehouse_id: move.from_location },
         });
 
-        if (!location || location.quantity < move.qty) {
+        // ✅ Use Number() to compare Decimal values — never compare raw Decimal objects
+        if (!location || Number(location.quantity) < Number(move.qty)) {
           throw new Error(`Insufficient stock for product ID: ${move.product_id}`);
         }
 
+        // ✅ Use Prisma atomic decrement — never do Decimal - Decimal in JS
         await tx.stockLocation.update({
           where: { id: location.id },
-          data: { quantity: location.quantity - move.qty } // Deduct stock
+          data: { quantity: { decrement: move.qty } },
         });
       }
 
-      const updatedOp = await tx.operation.update({
+      return tx.operation.update({
         where: { id: op.id },
-        data: { status: 'done' }
+        data: {
+          status: 'done',
+          validated_by: req.user.id,
+          validated_at: new Date(),
+        },
       });
-
-      return updatedOp;
     });
 
-    res.json({ message: "Delivery validated", operation: result });
+    res.json({ message: 'Delivery validated', operation: result });
   } catch (err) {
     console.error(err);
     res.status(400).json({ error: err.message });

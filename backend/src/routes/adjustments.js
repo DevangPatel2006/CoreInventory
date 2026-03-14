@@ -6,52 +6,52 @@ const authMid = require('../middleware/auth');
 const prisma = new PrismaClient();
 
 router.post('/', authMid, async (req, res) => {
-  const { product_id, warehouse_id, counted_quantity } = req.body;
+  const { product_id, warehouse_id, counted_quantity, notes } = req.body;
 
   if (counted_quantity < 0) {
-    return res.status(400).json({ error: "Counted quantity cannot be negative" });
+    return res.status(400).json({ error: 'Counted quantity cannot be negative' });
   }
 
   try {
     const result = await prisma.$transaction(async (tx) => {
       const location = await tx.stockLocation.findFirst({
-        where: { product_id, warehouse_id }
+        where: { product_id, warehouse_id },
       });
 
-      const current_qty = location ? location.quantity : 0;
+      // ✅ Use Number() to safely convert Decimal to JS number for arithmetic
+      const current_qty = location ? Number(location.quantity) : 0;
       const difference = counted_quantity - current_qty;
 
-      if (difference === 0) return { message: "No adjustment needed" };
+      if (difference === 0) return { message: 'No adjustment needed' };
 
       const adjustOp = await tx.operation.create({
         data: {
           type: 'adjust',
           status: 'done',
           ref_number: `ADJ-${Date.now()}`,
+          notes: notes || null,
           created_by: req.user.id,
+          validated_by: req.user.id,
+          validated_at: new Date(),
           moves: {
             create: {
               product_id,
               qty: Math.abs(difference),
               from_location: difference < 0 ? warehouse_id : null,
-              to_location: difference > 0 ? warehouse_id : null
-            }
-          }
-        }
+              to_location:   difference > 0 ? warehouse_id : null,
+            },
+          },
+        },
       });
 
       if (location) {
         await tx.stockLocation.update({
           where: { id: location.id },
-          data: { quantity: counted_quantity }
+          data: { quantity: counted_quantity },
         });
       } else {
         await tx.stockLocation.create({
-          data: {
-            product_id,
-            warehouse_id,
-            quantity: counted_quantity
-          }
+          data: { product_id, warehouse_id, quantity: counted_quantity },
         });
       }
 
@@ -60,7 +60,8 @@ router.post('/', authMid, async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    res.status(400).json({ error: "Adjustment failed" });
+    console.error(err);
+    res.status(400).json({ error: 'Adjustment failed' });
   }
 });
 

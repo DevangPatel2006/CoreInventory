@@ -5,22 +5,19 @@ const authMid = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
-// Get all receipts
 router.get('/', authMid, async (req, res) => {
   try {
     const receipts = await prisma.operation.findMany({
       where: { type: 'receipt' },
       include: {
         user: { select: { name: true } },
-        moves: {
-          include: { product: true }
-        }
+        moves: { include: { product: true } },
       },
-      orderBy: { created_at: 'desc' }
+      orderBy: { created_at: 'desc' },
     });
     res.json(receipts);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch receipts" });
+    res.status(500).json({ error: 'Failed to fetch receipts' });
   }
 });
 
@@ -30,104 +27,97 @@ router.get('/:id', authMid, async (req, res) => {
       where: { id: req.params.id },
       include: {
         user: { select: { name: true } },
-        moves: {
-          include: { product: true }
-        }
-      }
+        moves: { include: { product: true } },
+      },
     });
 
     if (!receipt || receipt.type !== 'receipt') {
-      return res.status(404).json({ error: "Receipt not found" });
+      return res.status(404).json({ error: 'Receipt not found' });
     }
 
     res.json(receipt);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch receipt" });
+    res.status(500).json({ error: 'Failed to fetch receipt' });
   }
 });
 
-// Create draft receipt
 router.post('/', authMid, async (req, res) => {
   try {
-    const { ref_number, moves } = req.body;
-    
-    if (!ref_number) return res.status(400).json({ error: "Reference number is required" });
-    if (!moves || !moves.length) return res.status(400).json({ error: "Moves are required" });
+    const { ref_number, contact_name, moves } = req.body;
+
+    if (!ref_number) return res.status(400).json({ error: 'Reference number is required' });
+    if (!moves || !moves.length) return res.status(400).json({ error: 'Moves are required' });
 
     const receipt = await prisma.operation.create({
       data: {
         type: 'receipt',
         ref_number,
+        contact_name: contact_name || null,
         created_by: req.user.id,
         moves: {
           create: moves.map(m => ({
             product_id: m.product_id,
             qty: m.qty,
-            to_location: m.to_location
-          }))
-        }
+            to_location: m.to_location,
+          })),
+        },
       },
-      include: { moves: true }
+      include: { moves: true },
     });
 
     res.json(receipt);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create receipt" });
+    res.status(500).json({ error: 'Failed to create receipt' });
   }
 });
 
-// Validate receipt (Updates stock!)
+// Validate receipt → stock increases
 router.post('/:id/validate', authMid, async (req, res) => {
   try {
-    const operation_id = req.params.id;
-
-    // We use a transaction so if one fails, they all rollback
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Get the operation
       const op = await tx.operation.findUnique({
-        where: { id: operation_id },
-        include: { moves: true }
+        where: { id: req.params.id },
+        include: { moves: true },
       });
 
-      if (!op) throw new Error("Operation not found");
-      if (op.type !== 'receipt') throw new Error("Not a receipt");
-      if (op.status === 'done') throw new Error("Already validated");
+      if (!op)                   throw new Error('Operation not found');
+      if (op.type !== 'receipt') throw new Error('Not a receipt');
+      if (op.status === 'done')  throw new Error('Already validated');
 
-      // 2. Loop through moves and update StockLocation
       for (const move of op.moves) {
-        // Find existing stock record
         const location = await tx.stockLocation.findFirst({
-          where: { product_id: move.product_id, warehouse_id: move.to_location }
+          where: { product_id: move.product_id, warehouse_id: move.to_location },
         });
 
         if (location) {
+          // ✅ Use Prisma atomic increment — never do Decimal + Decimal in JS
           await tx.stockLocation.update({
             where: { id: location.id },
-            data: { quantity: location.quantity + move.qty } // Add stock
+            data: { quantity: { increment: move.qty } },
           });
         } else {
-          // rare case if warehouse was added after product
           await tx.stockLocation.create({
             data: {
               product_id: move.product_id,
               warehouse_id: move.to_location,
-              quantity: move.qty
-            }
+              quantity: move.qty,
+            },
           });
         }
       }
 
-      // 3. Mark operation done
-      const updatedOp = await tx.operation.update({
+      return tx.operation.update({
         where: { id: op.id },
-        data: { status: 'done' }
+        data: {
+          status: 'done',
+          validated_by: req.user.id,
+          validated_at: new Date(),
+        },
       });
-
-      return updatedOp;
     });
 
-    res.json({ message: "Receipt validated successfully", operation: result });
+    res.json({ message: 'Receipt validated successfully', operation: result });
   } catch (err) {
     console.error(err);
     res.status(400).json({ error: err.message });
