@@ -60,7 +60,7 @@ router.post('/', authMid, async (req, res) => {
         data: {
           type: 'transfer',
           status: 'done',
-          ref_number,
+          ref_number: ref_number || `TRF-${Date.now()}`,
           created_by: req.user.id,
           moves: {
             create: moves.map(m => ({
