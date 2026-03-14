@@ -115,7 +115,8 @@ export default function Products() {
               <tr className="border-b border-white/10 bg-white/30">
                 <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Product</th>
                 <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">SKU / Category</th>
-                <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Stock</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Total Stock</th>
+                <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">By Warehouse</th>
                 <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground text-right">Min Level</th>
                 <th className="px-6 py-4"></th>
               </tr>
@@ -140,21 +141,23 @@ export default function Products() {
                       <div className="text-xs font-black text-muted-foreground uppercase mt-1 tracking-wider">{p.category?.name}</div>
                     </td>
                     <td className="px-6 py-5 text-right">
-                      {editingId === p.id ? (
-                        <div className="flex items-center justify-end space-x-2">
-                          <input type="number" autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
-                            className="w-24 h-10 text-right bg-white border border-primary/30 rounded-lg pr-3 font-black text-primary outline-none" />
-                          <button onClick={() => handleSaveEdit(p)} className="p-2 bg-primary text-white rounded-lg"><Save className="h-4 w-4" /></button>
-                          <button onClick={() => setEditingId(null)} className="p-2 bg-gray-100 rounded-lg"><X className="h-4 w-4" /></button>
-                        </div>
-                      ) : (
-                        <div onClick={() => { setEditingId(p.id); setEditValue(totalQty) }}
-                          className={`flex items-center justify-end space-x-2 cursor-pointer p-2 rounded-xl hover:bg-white transition-all ${isLow ? "text-destructive" : "text-foreground"}`}>
-                          <span className="text-xl font-black">{totalQty}</span>
-                          <span className="text-[10px] font-black uppercase tracking-widest opacity-50">{p.unit_of_measure}</span>
-                          <Edit3 className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      )}
+                      <div className={`text-xl font-black ${isLow ? "text-destructive" : "text-foreground"}`}>
+                        {totalQty} <span className="text-[10px] uppercase tracking-widest opacity-50">{p.unit_of_measure}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col gap-1">
+                        {p.stock_locations.length > 0 ? p.stock_locations.map(loc => (
+                          <div key={loc.id} className="flex justify-between items-center bg-gray-50 px-2 py-1 rounded text-xs">
+                            <span className="font-bold text-muted-foreground truncate max-w-[100px]" title={loc.warehouse?.name || `WH-${loc.warehouse_id}`}>
+                              {loc.warehouse?.name || `WH-${loc.warehouse_id}`}
+                            </span>
+                            <span className="font-black text-primary ml-2">{Number(loc.quantity)}</span>
+                          </div>
+                        )) : (
+                          <span className="text-xs text-muted-foreground italic">No stock</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-5 text-right font-black text-muted-foreground">{Number(p.min_stock_level)}</td>
                     <td className="px-6 py-5 text-right">

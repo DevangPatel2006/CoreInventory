@@ -11,7 +11,8 @@ import {
   Check, 
   RefreshCw,
   Search,
-  Plus
+  Plus,
+  MoreVertical
 } from "lucide-react"
 
 const TabButton = ({ active, icon: Icon, label, onClick }) => (

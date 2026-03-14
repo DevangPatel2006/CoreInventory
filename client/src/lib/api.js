@@ -95,3 +95,16 @@ export const deliveriesApi = {
 export const movesApi = {
   list: () => request("/moves"),
 }
+
+// Adjustments
+export const adjustmentsApi = {
+  create: (data) => request("/adjustments", { method: "POST", body: JSON.stringify(data) }),
+}
+
+// Transfers
+export const transfersApi = {
+  list: () => request("/transfers"),
+  get: (id) => request(`/transfers/${id}`),
+  create: (data) => request("/transfers", { method: "POST", body: JSON.stringify(data) }),
+  validate: (id) => request(`/transfers/${id}/validate`, { method: "POST" }),
+}
