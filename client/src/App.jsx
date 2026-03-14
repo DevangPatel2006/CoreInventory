@@ -11,6 +11,8 @@ import Transfers from "./pages/Transfers"
 import Adjustments from "./pages/Adjustments"
 import MoveHistory from "./pages/MoveHistory"
 import Login from "./pages/Login"
+import Warehouse from "./pages/Warehouse"
+import Settings from "./pages/Settings"
 
 function App() {
   return (
@@ -24,12 +26,8 @@ function App() {
         <Route path="/transfers" element={<Transfers />} />
         <Route path="/adjustments" element={<Adjustments />} />
         <Route path="/move-history" element={<MoveHistory />} />
-        {/* Placeholder for settings */}
-        <Route path="/settings" element={
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-             Settings Page (Coming Soon)
-          </div>
-        } />
+        <Route path="/warehouse" element={<Warehouse />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   )
