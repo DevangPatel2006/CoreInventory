@@ -41,12 +41,34 @@ router.get('/:id', authMid, async (req, res) => {
   }
 });
 
-// Create and immediately validate a transfer
+// Create transfer
 router.post('/', authMid, async (req, res) => {
   try {
-    const { ref_number, notes, moves } = req.body;
+    const { ref_number, notes, moves, validate_immediately = true } = req.body;
 
     if (!moves || !moves.length) return res.status(400).json({ error: 'Moves are required' });
+
+    if (!validate_immediately) {
+      const transfer = await prisma.operation.create({
+        data: {
+          type: 'transfer',
+          status: 'draft',
+          ref_number: ref_number || `TRF-${Date.now()}`,
+          notes: notes || null,
+          created_by: req.user.id,
+          moves: {
+            create: moves.map(m => ({
+              product_id: m.product_id,
+              qty: m.qty,
+              from_location: m.from_location,
+              to_location: m.to_location,
+            })),
+          },
+        },
+        include: { moves: true },
+      });
+      return res.json({ message: 'Draft transfer created', operation: transfer });
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       const transferOp = await tx.operation.create({
@@ -111,6 +133,70 @@ router.post('/', authMid, async (req, res) => {
     });
 
     res.json({ message: 'Transfer successful', operation: result });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Validate draft transfer
+router.post('/:id/validate', authMid, async (req, res) => {
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const transferOp = await tx.operation.findUnique({
+        where: { id: req.params.id },
+        include: { moves: true },
+      });
+
+      if (!transferOp)                    throw new Error('Operation not found');
+      if (transferOp.type !== 'transfer') throw new Error('Not a transfer');
+      if (transferOp.status === 'done')   throw new Error('Already validated');
+
+      for (const move of transferOp.moves) {
+        const source = await tx.stockLocation.findFirst({
+          where: { product_id: move.product_id, warehouse_id: move.from_location },
+        });
+
+        if (!source || Number(source.quantity) < Number(move.qty)) {
+          throw new Error(`Insufficient stock for product ID: ${move.product_id} at source`);
+        }
+
+        await tx.stockLocation.update({
+          where: { id: source.id },
+          data: { quantity: { decrement: move.qty } },
+        });
+
+        const dest = await tx.stockLocation.findFirst({
+          where: { product_id: move.product_id, warehouse_id: move.to_location },
+        });
+
+        if (dest) {
+          await tx.stockLocation.update({
+            where: { id: dest.id },
+            data: { quantity: { increment: move.qty } },
+          });
+        } else {
+          await tx.stockLocation.create({
+            data: {
+              product_id: move.product_id,
+              warehouse_id: move.to_location,
+              quantity: move.qty,
+            },
+          });
+        }
+      }
+
+      return tx.operation.update({
+        where: { id: transferOp.id },
+        data: {
+          status: 'done',
+          validated_by: req.user.id,
+          validated_at: new Date(),
+        },
+      });
+    });
+
+    res.json({ message: 'Transfer validated', operation: result });
   } catch (err) {
     console.error(err);
     res.status(400).json({ error: err.message });

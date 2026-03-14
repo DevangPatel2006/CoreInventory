@@ -57,6 +57,8 @@ router.post('/login', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(400).json({ error: "Invalid email or password" });
 
+    if (!user.is_active) return res.status(403).json({ error: 'Account is deactivated. Contact your manager.' });
+
     // Compare with the hash
     const validPass = await bcrypt.compare(password, user.password_hash);
     if (!validPass) return res.status(400).json({ error: "Invalid email or password" });
@@ -91,7 +93,33 @@ router.post('/forgot-password', async (req, res) => {
     return res.status(404).json({ error: "User not found" });
   }
 
-  res.json({ message: "OTP generated", otp }); 
+  if (process.env.NODE_ENV === 'development') {
+    return res.json({ message: 'OTP generated (dev)', otp });
+  }
+
+  if (process.env.EMAIL_USER) {
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: process.env.EMAIL_PORT,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    try {
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Password Reset OTP',
+        text: `Your OTP is ${otp}. It will expire in 15 minutes.`,
+      });
+    } catch (e) {
+      console.error('Email send failed:', e);
+    }
+  }
+
+  res.json({ message: 'If this email exists, an OTP has been sent.' });
 });
 
 router.post('/reset-password', async (req, res) => {

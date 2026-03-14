@@ -44,21 +44,26 @@ router.get('/kpis', authMid, async (req, res) => {
       }),
     ]);
 
-    // Low stock: quantity < min_stock_level
-    const lowStockItems = allStockWithMin
-      .filter(s => Number(s.quantity) < Number(s.product.min_stock_level))
-      .map(s => ({
-        product: s.product.name,
-        sku: s.product.sku,
-        warehouse: s.warehouse.name,
-        quantity: Number(s.quantity),
-        min_stock_level: Number(s.product.min_stock_level),
-      }));
+    const outOfStockItemsRaw = allStockWithMin.filter(s => Number(s.quantity) === 0);
+    const lowStockItemsRaw = allStockWithMin.filter(s => Number(s.quantity) > 0 && Number(s.quantity) < Number(s.product.min_stock_level));
+
+    const mapItem = s => ({
+      product: s.product.name,
+      sku: s.product.sku,
+      warehouse: s.warehouse.name,
+      quantity: Number(s.quantity),
+      min_stock_level: Number(s.product.min_stock_level),
+    });
+
+    const outOfStockItems = outOfStockItemsRaw.map(mapItem);
+    const lowStockItems = lowStockItemsRaw.map(mapItem);
 
     res.json({
       totalProducts,
       lowStockCount: lowStockItems.length,
-      lowStockItems,        // frontend can show which products are low
+      lowStockItems,
+      outOfStockCount: outOfStockItems.length,
+      outOfStockItems,
       pendingReceipts,
       pendingDeliveries,
       scheduledTransfers,

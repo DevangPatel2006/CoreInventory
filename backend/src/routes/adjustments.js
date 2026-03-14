@@ -5,6 +5,22 @@ const authMid = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
+router.get('/', authMid, async (req, res) => {
+  try {
+    const adjustments = await prisma.operation.findMany({
+      where: { type: 'adjust' },
+      include: {
+        user: { select: { name: true } },
+        moves: { include: { product: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    res.json(adjustments);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch adjustments' });
+  }
+});
+
 router.post('/', authMid, async (req, res) => {
   const { product_id, warehouse_id, counted_quantity, notes } = req.body;
 

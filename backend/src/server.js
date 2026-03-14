@@ -23,6 +23,15 @@ app.use('/adjustments', require('./routes/adjustments'));
 app.use('/moves', require('./routes/moves'));
 app.use('/dashboard', require('./routes/dashboard'));
 
+app.use((req, res) => {
+  res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server started on http://localhost:${PORT}`);

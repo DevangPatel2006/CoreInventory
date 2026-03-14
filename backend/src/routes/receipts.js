@@ -124,4 +124,20 @@ router.post('/:id/validate', authMid, async (req, res) => {
   }
 });
 
+router.patch('/:id/status', authMid, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ['draft', 'waiting', 'ready', 'cancelled'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    
+    const op = await prisma.operation.update({
+      where: { id: req.params.id },
+      data: { status }
+    });
+    res.json(op);
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to update status' });
+  }
+});
+
 module.exports = router;
