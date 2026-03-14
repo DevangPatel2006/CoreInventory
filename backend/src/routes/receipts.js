@@ -45,13 +45,13 @@ router.post('/', authMid, async (req, res) => {
   try {
     const { ref_number, contact_name, moves } = req.body;
 
-    if (!ref_number) return res.status(400).json({ error: 'Reference number is required' });
+    const ref = ref_number || `REC-${Date.now()}-${Math.floor(Math.random()*1000)}`;
     if (!moves || !moves.length) return res.status(400).json({ error: 'Moves are required' });
 
     const receipt = await prisma.operation.create({
       data: {
         type: 'receipt',
-        ref_number,
+        ref_number: ref,
         contact_name: contact_name || null,
         created_by: req.user.id,
         moves: {

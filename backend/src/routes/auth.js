@@ -16,6 +16,19 @@ router.post('/register', async (req, res) => {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(400).json({ error: "Email already in use" });
 
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters long" });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ error: "Password must contain at least one uppercase letter" });
+    }
+    if (!/[a-z]/.test(password)) {
+      return res.status(400).json({ error: "Password must contain at least one lowercase letter" });
+    }
+    if (!/[!@#$%^&*]/.test(password)) {
+      return res.status(400).json({ error: "Password must contain at least one special character (!@#$%^&*)" });
+    }
+
     // Hash the password securely
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
